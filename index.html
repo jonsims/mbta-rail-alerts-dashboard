@@ -639,19 +639,26 @@ function getChartColors() {
 }
 
 let mapTileLayer = null;
+let mapLabelLayer = null;
 function refreshMapForTheme() {
   if (!mapObj) return;
   const theme = getEffectiveTheme();
-  const tileUrl = theme === 'light'
-    ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
-    : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-  if (mapTileLayer) mapObj.removeLayer(mapTileLayer);
-  mapTileLayer = L.tileLayer(tileUrl, {
+  const baseUrl = theme === 'light'
+    ? 'https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png'
+    : 'https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png';
+  const labelUrl = theme === 'light'
+    ? 'https://{s}.basemaps.cartocdn.com/light_only_labels/{z}/{x}/{y}{r}.png'
+    : 'https://{s}.basemaps.cartocdn.com/dark_only_labels/{z}/{x}/{y}{r}.png';
+  const tileOpts = {
     attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
     subdomains: 'abcd', maxZoom: 19,
-  }).addTo(mapObj);
-  // Ensure route layers are on top
+  };
+  if (mapTileLayer) mapObj.removeLayer(mapTileLayer);
+  if (mapLabelLayer) mapObj.removeLayer(mapLabelLayer);
+  mapTileLayer = L.tileLayer(baseUrl, tileOpts).addTo(mapObj);
+  // Route layers sit between base and labels
   Object.values(mapLayers).forEach(l => l.bringToFront());
+  mapLabelLayer = L.tileLayer(labelUrl, { ...tileOpts, pane: 'overlayPane' }).addTo(mapObj);
 }
 
 function refreshChartsForTheme() {
@@ -1275,15 +1282,7 @@ function initMap() {
     zoom: 10,
     zoomControl: true,
   });
-  const theme = getEffectiveTheme();
-  const tileUrl = theme === 'light'
-    ? 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
-    : 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-  mapTileLayer = L.tileLayer(tileUrl, {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/">CARTO</a>',
-    subdomains: 'abcd',
-    maxZoom: 19,
-  }).addTo(mapObj);
+  refreshMapForTheme();
 }
 
 function renderMapRoutes() {
@@ -1372,6 +1371,9 @@ function renderMapRoutes() {
     layer.addTo(mapObj);
     mapLayers[routeId] = layer;
   });
+
+  // Keep labels on top of route lines
+  if (mapLabelLayer) mapLabelLayer.bringToFront();
 
   renderMapLegend();
 }
