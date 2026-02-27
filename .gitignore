@@ -1,0 +1,10 @@
+# Large data files
+Alerts_2025/
+Alerts_2025.zip
+ETT.csv
+
+# macOS
+.DS_Store
+
+# Claude Code
+.claude/
