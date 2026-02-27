@@ -1367,8 +1367,6 @@ function renderMapRoutes() {
       }
       selectedRoute = routeId;
       renderRouteTable();
-      const row = document.querySelector(`tr[data-route="${routeId}"]`);
-      if (row) row.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
 
     layer.addTo(mapObj);
