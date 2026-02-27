@@ -917,11 +917,8 @@ function populateFilters() {
   });
   const oU = document.createElement('option'); oU.value = 'Unspecified'; oU.textContent = 'Unspecified'; rtSel.appendChild(oU);
 
-  // Route-level filter
-  const rSel = document.getElementById('filterRoute');
-  DATA.routeTable.forEach(r => {
-    const o = document.createElement('option'); o.value = r.id; o.textContent = r.displayName || r.id; rSel.appendChild(o);
-  });
+  // Route-level filter (initial population)
+  populateRouteDropdown();
 
   const cSel = document.getElementById('filterCause');
   DATA.causes.forEach(c => {
@@ -937,16 +934,28 @@ function populateFilters() {
   });
 }
 
+function populateRouteDropdown() {
+  const rSel = document.getElementById('filterRoute');
+  const prev = rSel.value;
+  rSel.innerHTML = '<option value="">All Routes</option>';
+  const routes = filters.routeType
+    ? DATA.routeTable.filter(r => r.type === filters.routeType)
+    : DATA.routeTable;
+  routes.forEach(r => {
+    const o = document.createElement('option'); o.value = r.id; o.textContent = r.displayName || r.id; rSel.appendChild(o);
+  });
+  // Restore selection if still valid, otherwise clear
+  if (prev && routes.some(r => r.id === prev)) {
+    rSel.value = prev;
+  } else if (prev) {
+    filters.route = '';
+    rSel.value = '';
+  }
+}
+
 document.getElementById('filterRouteType').addEventListener('change', e => {
   filters.routeType = e.target.value;
-  // Clear route filter if route type changes (they may conflict)
-  if (filters.route) {
-    const r = DATA.routeTable.find(rt => rt.id === filters.route);
-    if (r && filters.routeType && r.type !== filters.routeType) {
-      filters.route = '';
-      document.getElementById('filterRoute').value = '';
-    }
-  }
+  populateRouteDropdown();
   renderAll();
 });
 document.getElementById('filterRoute').addEventListener('change', e => {
