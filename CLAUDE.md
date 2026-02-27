@@ -6,11 +6,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 MBTA Rail Alert Analysis Dashboard — a single-page data analytics app that visualizes 2025 service alerts for Boston-area rail transit (Subway, Light Rail, Commuter Rail). No backend server; fully static. Two files do all the work: a Python ETL script and a self-contained HTML dashboard.
 
+## Deployment
+
+- **Live site:** https://jonsims.github.io/mbta-rail-alerts-dashboard/
+- **Local dev:** https://local.mbta-alerts (via Caddy)
+- **GitHub Pages:** auto-deploys from `main` via `.github/workflows/pages.yml`
+
 ## Architecture & Data Flow
 
 ```
 Alerts_2025/*.csv  →  preprocess_alerts.py  →  alerts_data.json  →  index.html (dashboard)
-     (12 monthly CSVs,       (Python 3.11+,          (~440KB,           (1424-line single-file
+     (12 monthly CSVs,       (Python 3.11+,          (~440KB,           (~1900-line single-file
       50-70MB each)           stdlib only)           generated)          HTML/CSS/JS app)
 ```
 
@@ -21,10 +27,11 @@ A separate 50MB historical transit-time dataset (2022, half-hourly metrics). Not
 
 ```bash
 # Regenerate the processed data (Python 3.11+ required, no pip deps — uses only csv, json, os, urllib, collections, datetime)
-python preprocess_alerts.py
+python3 preprocess_alerts.py
 
 # View the dashboard (static file, no server needed)
 open index.html
+# Or via local Caddy: https://local.mbta-alerts
 ```
 
 ## preprocess_alerts.py (521 lines)
@@ -105,20 +112,22 @@ Generated output consumed by the dashboard. Top-level keys:
 }
 ```
 
-## index.html Architecture (~1710 lines)
+## index.html Architecture (~1913 lines)
 
 Self-contained dashboard: HTML structure, CSS, JavaScript in one file.
 
 ### External dependencies (CDN):
 - Chart.js 4.4.7 — all charts
-- Leaflet 1.9.4 — interactive map with CartoDB dark basemap
+- Leaflet 1.9.4 — interactive map with CartoDB basemap (light/dark variants)
 
 ### CSS design system:
-Dark theme using CSS custom properties on `:root`:
-- `--bg: #0f1117`, `--surface: #1a1d27`, `--surface2: #232733`
-- `--accent: #4f8cff`, `--red: #ff4d6a`, `--orange: #ff9f43`, `--green: #51cf66`
+- **Dark/light/system theme** via `[data-theme]` attribute on `<html>`
+- Dark (`:root` default): `--bg: #0f1117`, `--surface: #1a1d27`, `--accent: #4f8cff`
+- Light (`[data-theme="light"]`): `--bg: #f0f2f5`, `--surface: #ffffff`, `--accent: #2563eb`
+- Theme-aware CSS vars: `--chart-grid`, `--chart-tick`, `--chart-label`, `--shadow`, `--heatmap-text`
 - Responsive: `@media (max-width: 1100px)` and `@media (max-width: 600px)` breakpoints
 - `.sr-only` class for screen-reader-only labels
+- `.help-icon` / `.help-popup` for contextual help system
 
 ### JavaScript global state:
 - `DATA` — loaded JSON object (set once from `fetch('alerts_data.json')`)
@@ -162,7 +171,9 @@ renderHeatmap()               — 7×24 grid with color intensity
 renderRouteTable()            — sortable table with grade badges and severity bars
 ```
 
-### Key features added (v2):
+### Key features added (v2-v3):
+- **Dark/light/system theme** — three-way toggle, persisted in localStorage, OS preference listener
+- **Help tooltips** — (?) icons on every panel and summary card with contextual descriptions
 - **Route-level filter** — `<select id="filterRoute">` lets users drill into a specific route
 - **URL state** — all filter state persisted in query params for sharing/bookmarking
 - **Export CSV** — downloads current filtered route table as CSV
@@ -196,13 +207,32 @@ Opens on table row click. Respects current month filters (no longer hardcoded to
 - MBTA V3 API is called only during preprocessing (for route GeoJSON shapes); dashboard is fully offline after that
 - 33,929 unique alerts across 22 routes, 12 months of 2025
 
+## Known Issues (from quality audit, 2026-02-26)
+
+### Critical
+- **Month-filtered rates are wrong in route table, context text, map, and CSV export.** `r.count` and `r.severe` are full-year totals but get divided by filtered-month `days`. Summary cards already fixed via `monthlySev`. Same pattern needs to be applied everywhere.
+
+### High
+- **ETL uses first-seen row attributes, not deduplicated winner.** The `alerts` dict tracks the latest `last_modified_dt` but `records` captures whatever version was seen first.
+- **Display names inconsistent.** Route table, context text, modal, and summary cards show raw IDs (`CR-Worcester`) instead of display names (`Worcester Line`).
+- **Light theme color contrast.** Grade badge colors A-D fail WCAG AA on white. `--orange`/`--green`/`--yellow` need darker light-mode variants.
+- **No SEO meta tags.** No Open Graph, Twitter Card, description, or favicon for the public GitHub Pages site.
+
+### Medium
+- Keyboard: table rows, filter tags, help icons are mouse-only
+- No modal focus trap
+- Touch targets below 44px (theme toggle, about button, help icons)
+- Heatmap unusable on mobile (~9px cells, no touch interaction)
+- Tooltip division by zero with aggressive filtering (NaN%)
+
 ## File Inventory
 
 | File | Size | Purpose |
 |------|------|---------|
-| `index.html` | ~73KB | Dashboard (HTML + CSS + JS) |
+| `index.html` | ~87KB | Dashboard (HTML + CSS + JS) |
 | `preprocess_alerts.py` | 21KB | ETL script |
 | `alerts_data.json` | 440KB | Generated dashboard data |
+| `.github/workflows/pages.yml` | 1KB | GitHub Pages deployment |
 | `ETT.csv` | 50MB | Historical transit times (2022, unused by dashboard) |
 | `Alerts_2025_metadata.md` | 3.7KB | FGDC-compliant data dictionary for CSV fields |
 | `Alerts_2025/*.csv` | ~700MB | 12 monthly alert CSVs (source data) |

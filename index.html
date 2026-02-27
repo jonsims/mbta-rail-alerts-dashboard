@@ -4,6 +4,15 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MBTA Rail Alerts Dashboard — 2025</title>
+<meta name="description" content="Interactive analytics dashboard visualizing 33,929 MBTA rail service alerts across 49 routes in 2025. Explore trends by cause, severity, route, and time.">
+<meta property="og:type" content="website">
+<meta property="og:title" content="MBTA Rail Alerts Dashboard — 2025">
+<meta property="og:description" content="Interactive dashboard visualizing 33,929 MBTA rail service alerts across 49 routes in 2025. Filter by route, severity, cause, and time period.">
+<meta property="og:url" content="https://jonsims.github.io/mbta-rail-alerts-dashboard/">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="MBTA Rail Alerts Dashboard — 2025">
+<meta name="twitter:description" content="Interactive dashboard visualizing 33,929 MBTA rail service alerts across 49 routes in 2025.">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🚇</text></svg>">
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
@@ -39,11 +48,11 @@
     --text-dim: #5f6370;
     --accent: #2563eb;
     --red: #dc2626;
-    --orange: #d97706;
-    --yellow: #ca8a04;
-    --green: #16a34a;
-    --purple: #7c3aed;
-    --cyan: #0891b2;
+    --orange: #b45309;
+    --yellow: #a16207;
+    --green: #15803d;
+    --purple: #6d28d9;
+    --cyan: #0e7490;
     --chart-grid: rgba(0,0,0,0.08);
     --chart-tick: #5f6370;
     --chart-label: #1a1d27;
@@ -51,6 +60,14 @@
     --heatmap-text: rgba(0,0,0,0.7);
     color-scheme: light;
   }
+  /* Light-mode grade badge contrast fix */
+  [data-theme="light"] .grade-badge {
+    font-weight: 900;
+  }
+  [data-theme="light"] .grade-badge[style*="color:#51cf66"] { color: #15803d !important; }
+  [data-theme="light"] .grade-badge[style*="color:#94d82d"] { color: #4d7c0f !important; }
+  [data-theme="light"] .grade-badge[style*="color:#ffd43b"] { color: #a16207 !important; }
+  [data-theme="light"] .grade-badge[style*="color:#ff9f43"] { color: #b45309 !important; }
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
@@ -334,11 +351,12 @@
   /* Help tooltip (?) */
   .help-icon {
     display: inline-flex; align-items: center; justify-content: center;
-    width: 18px; height: 18px; border-radius: 50%; border: 1px solid var(--border);
+    width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--border);
     color: var(--text-dim); font-size: 11px; font-weight: 600; cursor: help;
     flex-shrink: 0; line-height: 1; vertical-align: middle;
     font-style: normal; font-family: -apple-system, BlinkMacSystemFont, sans-serif;
   }
+  .help-icon:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   .help-icon:hover { color: var(--accent); border-color: var(--accent); }
   .help-popup {
     position: fixed; z-index: 1001; background: var(--surface); border: 1px solid var(--border);
@@ -376,7 +394,19 @@
     .modal .stat .val { font-size: 18px; }
     .active-filters { padding: 0 16px; }
   }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
 </style>
+<script>
+// Early theme application to prevent FOUC
+(function(){var p=localStorage.getItem('mbta-theme')||'system';if(p==='system'){var d=window.matchMedia('(prefers-color-scheme: dark)').matches;document.documentElement.setAttribute('data-theme',d?'dark':'light')}else{document.documentElement.setAttribute('data-theme',p)}})();
+</script>
 </head>
 <body>
 
@@ -430,21 +460,21 @@
 
     <!-- Rail Network Map -->
     <div class="panel full-width">
-      <h2>Rail Network Alert Map <span class="help-icon" data-help="map">?</span></h2>
+      <h2>Rail Network Alert Map <span class="help-icon" tabindex="0" role="button" data-help="map">?</span></h2>
       <div id="map" style="height:480px; border-radius:8px; overflow:hidden;"></div>
       <div class="map-legend" id="mapLegend"></div>
     </div>
 
     <!-- Duration Summary -->
     <div class="panel full-width" id="durationPanel">
-      <h2>Alert Duration <span class="help-icon" data-help="duration">?</span></h2>
+      <h2>Alert Duration <span class="help-icon" tabindex="0" role="button" data-help="duration">?</span></h2>
       <div id="durationContent" style="display:flex;gap:20px;flex-wrap:wrap;"></div>
     </div>
 
     <!-- Monthly Trend -->
     <div class="panel full-width" id="trendPanel">
       <h2>
-        <span id="trendTitleText">Monthly Alert Trend</span> <span class="help-icon" data-help="trend">?</span>
+        <span id="trendTitleText">Monthly Alert Trend</span> <span class="help-icon" tabindex="0" role="button" data-help="trend">?</span>
         <div class="toggle-group" id="trendToggle">
           <button class="toggle-btn active" data-mode="cause">Cause</button>
           <button class="toggle-btn" data-mode="severity">Severity</button>
@@ -458,11 +488,11 @@
     <!-- Effect & Cause (effects promoted — 100% classified vs ~6% for causes) -->
     <div class="grid-2" id="causeEffectRow">
       <div class="panel" id="effectPanel">
-        <h2>Alerts by Effect <span class="help-icon" data-help="effect">?</span></h2>
+        <h2>Alerts by Effect <span class="help-icon" tabindex="0" role="button" data-help="effect">?</span></h2>
         <div class="chart-wrap" style="height:300px"><canvas id="effectChart" aria-label="Horizontal bar chart showing alert counts by effect type"></canvas></div>
       </div>
       <div class="panel" id="causePanel">
-        <h2>Alerts by Cause <span class="help-icon" data-help="cause">?</span> <span style="font-weight:400;color:var(--text-dim);font-size:12px" id="causeSubtitle">(known causes only — ~6% of alerts)</span></h2>
+        <h2>Alerts by Cause <span class="help-icon" tabindex="0" role="button" data-help="cause">?</span> <span style="font-weight:400;color:var(--text-dim);font-size:12px" id="causeSubtitle">(known causes only — ~6% of alerts)</span></h2>
         <div class="chart-wrap" style="height:300px"><canvas id="causeChart" aria-label="Horizontal bar chart showing alert counts by known cause"></canvas></div>
       </div>
     </div>
@@ -470,25 +500,25 @@
     <!-- Severity + Route Type -->
     <div class="grid-2" id="sevRtRow">
       <div class="panel" id="severityPanel">
-        <h2>Severity Distribution <span class="help-icon" data-help="severity">?</span></h2>
+        <h2>Severity Distribution <span class="help-icon" tabindex="0" role="button" data-help="severity">?</span></h2>
         <div class="chart-wrap" style="height:280px"><canvas id="severityChart" aria-label="Doughnut chart showing severity distribution"></canvas></div>
       </div>
       <div class="panel" id="routeTypePanel">
-        <h2>Alerts by Route Type <span class="help-icon" data-help="routeType">?</span></h2>
+        <h2>Alerts by Route Type <span class="help-icon" tabindex="0" role="button" data-help="routeType">?</span></h2>
         <div class="chart-wrap" style="height:280px"><canvas id="routeTypeChart" aria-label="Doughnut chart showing alerts by route type"></canvas></div>
       </div>
     </div>
 
     <!-- Heatmap -->
     <div class="panel full-width" id="heatmapPanel">
-      <h2>Alert Start Time Distribution <span class="help-icon" data-help="heatmap">?</span> <span style="font-weight:400;color:var(--text-dim);font-size:12px">(Day of Week x Hour — when alerts begin)</span></h2>
+      <h2>Alert Start Time Distribution <span class="help-icon" tabindex="0" role="button" data-help="heatmap">?</span> <span style="font-weight:400;color:var(--text-dim);font-size:12px">(Day of Week x Hour — when alerts begin)</span></h2>
       <div id="heatmapContainer"></div>
     </div>
 
     <!-- Route Table -->
     <div class="panel full-width">
       <h2>
-        Route Analysis <span class="help-icon" data-help="routeTable">?</span>
+        Route Analysis <span class="help-icon" tabindex="0" role="button" data-help="routeTable">?</span>
         <input type="text" class="search-box" id="routeSearch" placeholder="Search routes..." aria-label="Search routes">
         <button class="export-btn" id="exportCsv">Export CSV</button>
       </h2>
@@ -523,7 +553,7 @@
 </div>
 
 <!-- Route Modal -->
-<div class="modal-overlay" id="routeModal">
+<div class="modal-overlay" id="routeModal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
   <div class="modal">
     <button class="close-btn" id="modalClose" aria-label="Close modal">&times;</button>
     <h2 id="modalTitle"></h2>
@@ -537,10 +567,10 @@
 </div>
 
 <!-- About Modal -->
-<div class="about-overlay" id="aboutOverlay">
+<div class="about-overlay" id="aboutOverlay" role="dialog" aria-modal="true" aria-labelledby="aboutTitle">
   <div class="about-panel">
     <button class="close-btn" id="aboutClose" aria-label="Close about panel">&times;</button>
-    <h2>About This Dashboard</h2>
+    <h2 id="aboutTitle">About This Dashboard</h2>
     <p>This dashboard visualizes <strong>2025 MBTA rail service alerts</strong> across Subway, Green Line (Light Rail), and Commuter Rail routes. It covers 33,929 unique alerts across 22 routes over 12 months.</p>
     <h3>Data Source</h3>
     <p>Alert data from the <a href="https://www.mbta.com/developers" target="_blank">MBTA V3 API</a>, processed from monthly CSV exports. Route shapes fetched from the MBTA route patterns API.</p>
@@ -648,6 +678,11 @@ const HELP_TEXT = {
 };
 
 const helpPopup = document.getElementById('helpPopup');
+document.addEventListener('keydown', e => {
+  if ((e.key === 'Enter' || e.key === ' ') && e.target.closest('.help-icon')) {
+    e.preventDefault(); e.target.click();
+  }
+});
 document.addEventListener('click', e => {
   const icon = e.target.closest('.help-icon');
   if (icon) {
@@ -758,14 +793,22 @@ function pushFilterState() {
 
 // ──── About Panel ────
 document.getElementById('aboutBtn').addEventListener('click', () => {
-  document.getElementById('aboutOverlay').classList.add('show');
+  _modalTrigger = document.getElementById('aboutBtn');
+  const overlay = document.getElementById('aboutOverlay');
+  overlay.classList.add('show');
+  trapFocus(overlay);
 });
 document.getElementById('aboutClose').addEventListener('click', () => {
-  document.getElementById('aboutOverlay').classList.remove('show');
+  const overlay = document.getElementById('aboutOverlay');
+  overlay.classList.remove('show');
+  releaseFocus(overlay);
 });
 document.getElementById('aboutOverlay').addEventListener('click', e => {
-  if (e.target === document.getElementById('aboutOverlay'))
-    document.getElementById('aboutOverlay').classList.remove('show');
+  if (e.target === document.getElementById('aboutOverlay')) {
+    const overlay = document.getElementById('aboutOverlay');
+    overlay.classList.remove('show');
+    releaseFocus(overlay);
+  }
 });
 
 // ──── Init ────
@@ -833,6 +876,23 @@ function getFilteredMonthIndices() {
   if (end < 0) end = DATA.months.length - 1;
   if (start > end) [start, end] = [end, start];
   return { start, end, months: DATA.months.slice(start, end + 1) };
+}
+
+// Get a route's alert count for the filtered month range only
+function getRouteFilteredCount(r, start, end) {
+  let total = 0;
+  DATA.months.forEach((m, i) => { if (i >= start && i <= end) total += (r.months[m] || 0); });
+  return total;
+}
+// Get a route's severe count for the filtered month range only
+function getRouteFilteredSevere(r, start, end) {
+  if (r.monthlySev) {
+    const vals = r.monthlySev['SEVERE'] || [];
+    let total = 0;
+    for (let i = start; i <= end; i++) total += (vals[i] || 0);
+    return total;
+  }
+  return r.severe; // fallback to full-year
 }
 
 function getFilteredRoutes() {
@@ -926,8 +986,9 @@ function updateActiveFilters() {
     active.push({ key: 'months', label: from + ' — ' + to });
   }
   active.forEach(f => {
-    const tag = document.createElement('div');
+    const tag = document.createElement('button');
     tag.className = 'filter-tag';
+    tag.setAttribute('aria-label', 'Remove filter: ' + f.label);
     tag.innerHTML = `${f.label} <span class="x">&times;</span>`;
     tag.addEventListener('click', () => {
       if (f.key === 'months') {
@@ -1123,31 +1184,31 @@ function renderSummaryCards() {
   const container = document.getElementById('summaryCards');
   container.innerHTML = `
     <div class="card">
-      <div class="label">Total Alerts <span class="help-icon" data-help="totalAlerts">?</span></div>
+      <div class="label">Total Alerts <span class="help-icon" tabindex="0" role="button" data-help="totalAlerts">?</span></div>
       <div class="value">${totalAlerts.toLocaleString()}</div>
       <div class="sub"><strong>${alertsPerDay.toFixed(1)}</strong> per day across ${routes.length} routes</div>
       <div class="bar" style="background:var(--accent)"></div>
     </div>
     <div class="card">
-      <div class="label">Most Affected Route <span class="help-icon" data-help="mostAffected">?</span></div>
-      <div class="value">${topRoute ? topRoute[0] : '—'} ${topRouteGrade ? `<span class="grade-badge" style="background:${GRADE_COLORS[topRouteGrade]}22;color:${GRADE_COLORS[topRouteGrade]};font-size:16px;vertical-align:middle">${topRouteGrade}</span>` : ''}</div>
+      <div class="label">Most Affected Route <span class="help-icon" tabindex="0" role="button" data-help="mostAffected">?</span></div>
+      <div class="value">${topRoute ? (() => { const tr = routes.find(x => x.id === topRoute[0]); return (tr && tr.displayName) || topRoute[0]; })() : '—'} ${topRouteGrade ? `<span class="grade-badge" style="background:${GRADE_COLORS[topRouteGrade]}22;color:${GRADE_COLORS[topRouteGrade]};font-size:16px;vertical-align:middle">${topRouteGrade}</span>` : ''}</div>
       <div class="sub">${topRoute ? (topRoute[1] / days).toFixed(1) + ' alerts/day (' + topRoute[1].toLocaleString() + ' total)' : ''}</div>
       <div class="bar" style="background:var(--red)"></div>
     </div>
     <div class="card">
-      <div class="label">Severe Alerts <span class="help-icon" data-help="severeCard">?</span></div>
+      <div class="label">Severe Alerts <span class="help-icon" tabindex="0" role="button" data-help="severeCard">?</span></div>
       <div class="value" style="color:var(--red)">${sevTotal.SEVERE.toLocaleString()}</div>
       <div class="sub">${sevTotalSum ? (sevTotal.SEVERE / sevTotalSum * 100).toFixed(1) : 0}% of total &middot; ${days > 0 ? (sevTotal.SEVERE / days).toFixed(1) : 0}/day</div>
       <div class="bar" style="background:var(--red)"></div>
     </div>
     <div class="card">
-      <div class="label">Warnings <span class="help-icon" data-help="warningCard">?</span></div>
+      <div class="label">Warnings <span class="help-icon" tabindex="0" role="button" data-help="warningCard">?</span></div>
       <div class="value" style="color:var(--orange)">${sevTotal.WARNING.toLocaleString()}</div>
       <div class="sub">${sevTotalSum ? (sevTotal.WARNING / sevTotalSum * 100).toFixed(1) : 0}% of total &middot; ${days > 0 ? (sevTotal.WARNING / days).toFixed(1) : 0}/day</div>
       <div class="bar" style="background:var(--orange)"></div>
     </div>
     <div class="card">
-      <div class="label">Info <span class="help-icon" data-help="infoCard">?</span></div>
+      <div class="label">Info <span class="help-icon" tabindex="0" role="button" data-help="infoCard">?</span></div>
       <div class="value" style="color:var(--green)">${sevTotal.INFO.toLocaleString()}</div>
       <div class="sub">${sevTotalSum ? (sevTotal.INFO / sevTotalSum * 100).toFixed(1) : 0}% of total</div>
       <div class="bar" style="background:var(--green)"></div>
@@ -1166,28 +1227,29 @@ function renderContextText() {
   }
   document.getElementById('contextText').style.display = 'block';
 
-  // Sort by count descending
-  const sorted = [...routes].sort((a, b) => b.count - a.count);
+  // Compute filtered counts per route, sort by filtered count
+  const withFiltered = routes.map(r => ({
+    ...r,
+    _fc: getRouteFilteredCount(r, start, end),
+    _fs: getRouteFilteredSevere(r, start, end),
+  }));
+  const sorted = withFiltered.sort((a, b) => b._fc - a._fc);
   const worst = sorted[0];
   const best = sorted[sorted.length - 1];
-  const worstPerDay = (worst.count / days).toFixed(1);
-  const worstSevPerDay = (worst.severe / days).toFixed(1);
-  const bestPerDay = (best.count / days).toFixed(1);
+  const worstPerDay = days > 0 ? (worst._fc / days).toFixed(1) : '0';
+  const worstSevPerDay = days > 0 ? (worst._fs / days).toFixed(1) : '0';
+  const bestPerDay = days > 0 ? (best._fc / days).toFixed(1) : '0';
 
-  const totalAlerts = sorted.reduce((sum, r) => {
-    let t = 0;
-    DATA.months.forEach((m, i) => { if (i >= start && i <= end) t += (r.months[m] || 0); });
-    return sum + t;
-  }, 0);
-  const avgPerRoute = (totalAlerts / routes.length / days).toFixed(1);
+  const totalAlerts = sorted.reduce((sum, r) => sum + r._fc, 0);
+  const avgPerRoute = days > 0 ? (totalAlerts / routes.length / days).toFixed(1) : '0';
 
   const rtLabel = filters.routeType ? filters.routeType : 'all';
   const monthLabel = start === 0 && end === 11
     ? 'all of 2025'
     : `${MONTH_SHORT(DATA.months[start])}${start !== end ? '–' + MONTH_SHORT(DATA.months[end]) : ''} 2025`;
 
-  const worstGrade = getGrade(worst.severe / days);
-  const bestGrade = getGrade(best.severe / days);
+  const worstGrade = getGrade(days > 0 ? worst._fs / days : 0);
+  const bestGrade = getGrade(days > 0 ? best._fs / days : 0);
 
   // Duration context
   const src = getDataSource();
@@ -1199,10 +1261,10 @@ function renderContextText() {
   document.getElementById('contextText').innerHTML =
     `Over <strong>${monthLabel}</strong> (${days} days), across <strong>${routes.length} ${rtLabel} routes</strong>, ` +
     `the average route saw <span class="highlight">${avgPerRoute} alerts/day</span>. ` +
-    `The most disrupted route was <span class="bad">${worst.id}</span> (${worst.type}) at ` +
+    `The most disrupted route was <span class="bad">${worst.displayName || worst.id}</span> (${worst.type}) at ` +
     `<span class="bad">${worstPerDay} alerts/day</span>, including ${worstSevPerDay} severe/day ` +
     `(grade <span style="color:${GRADE_COLORS[worstGrade]};font-weight:700">${worstGrade}</span>). ` +
-    `The least disrupted was <span class="highlight">${best.id}</span> at ${bestPerDay} alerts/day ` +
+    `The least disrupted was <span class="highlight">${best.displayName || best.id}</span> at ${bestPerDay} alerts/day ` +
     `(grade <span style="color:${GRADE_COLORS[bestGrade]};font-weight:700">${bestGrade}</span>).` + durText;
 }
 
@@ -1242,10 +1304,12 @@ function renderMapRoutes() {
     const routeData = routeIndex[routeId];
     if (!routeData) return; // Route filtered out or not in our table
 
-    const sevPerDay = days > 0 ? routeData.severe / days : 0;
+    const filteredCount = getRouteFilteredCount(routeData, start, end);
+    const filteredSevere = getRouteFilteredSevere(routeData, start, end);
+    const sevPerDay = days > 0 ? filteredSevere / days : 0;
     const grade = getGrade(sevPerDay);
     const baseColor = routeData.color || feature.properties.color;
-    const perDay = days > 0 ? (routeData.count / days).toFixed(1) : '0';
+    const perDay = days > 0 ? (filteredCount / days).toFixed(1) : '0';
 
     // Thicker + more opaque = worse grade
     const weightMap = { 'A': 3, 'B': 4, 'C': 5, 'D': 6, 'F': 8 };
@@ -1270,7 +1334,7 @@ function renderMapRoutes() {
       <span style="color:var(--text-dim);font-size:12px;margin-left:6px">${routeData.type}</span>
       <div class="route-popup-stats">
         <strong>${perDay}</strong> alerts/day &middot;
-        <strong>${routeData.count.toLocaleString()}</strong> total<br>
+        <strong>${filteredCount.toLocaleString()}</strong> total<br>
         <strong>${sevPerDay.toFixed(1)}</strong> severe/day &middot;
         Top cause: <strong>${routeData.topCause}</strong>${durInfo}
       </div>
@@ -1404,7 +1468,7 @@ function renderTrendChart() {
   }));
 
   if (otherTotal.length && otherTotal.some(v => v > 0)) {
-    datasets.push({ label: 'Other', data: otherTotal, backgroundColor: '#555', borderRadius: 3 });
+    datasets.push({ label: 'Other', data: otherTotal, backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--text-dim').trim(), borderRadius: 3 });
   }
 
   const cc = getChartColors();
@@ -1547,7 +1611,7 @@ function renderSeverityChart() {
           callbacks: {
             label: ctx => {
               const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
-              return `${ctx.label}: ${ctx.raw.toLocaleString()} (${(ctx.raw / total * 100).toFixed(1)}%)`;
+              return `${ctx.label}: ${ctx.raw.toLocaleString()} (${total > 0 ? (ctx.raw / total * 100).toFixed(1) : 0}%)`;
             }
           }
         },
@@ -1595,7 +1659,7 @@ function renderRouteTypeChart() {
           callbacks: {
             label: ctx => {
               const total = ctx.dataset.data.reduce((a, b) => a + b, 0);
-              return `${ctx.label}: ${ctx.raw.toLocaleString()} (${(ctx.raw / total * 100).toFixed(1)}%)`;
+              return `${ctx.label}: ${ctx.raw.toLocaleString()} (${total > 0 ? (ctx.raw / total * 100).toFixed(1) : 0}%)`;
             }
           }
         },
@@ -1639,10 +1703,7 @@ function renderHeatmap() {
       const intensity = val / maxVal;
       let bg;
       if (isLight) {
-        // Light: white → blue → red
-        const r = Math.round(220 - (220 - 220) * intensity);
-        const g = Math.round(230 - (230 - 80) * intensity);
-        const b = Math.round(245 - (245 - 80) * intensity);
+        // Light: transparent blue → warm red
         const alpha = 0.15 + intensity * 0.85;
         bg = `rgba(${Math.round(37 + (220-37)*intensity)},${Math.round(99 + (60-99)*intensity)},${Math.round(235 + (100-235)*intensity)},${alpha})`;
       } else {
@@ -1692,19 +1753,21 @@ document.getElementById('exportCsv').addEventListener('click', () => {
   const { start, end } = getFilteredMonthIndices();
   const days = getTotalDays(start, end);
   let routes = getFilteredRoutes();
-  if (routeSearchTerm) routes = routes.filter(r => r.id.toLowerCase().includes(routeSearchTerm));
+  if (routeSearchTerm) routes = routes.filter(r => r.id.toLowerCase().includes(routeSearchTerm) || (r.displayName && r.displayName.toLowerCase().includes(routeSearchTerm)));
 
   const rows = [['Route', 'Type', 'Grade', 'Alerts/Day', 'Total', 'Avg Sev', 'Top Cause', 'Top Effect', 'Median Duration', 'Severe%', 'Warning%', 'Info%']];
   routes.forEach(r => {
-    const perDay = days > 0 ? (r.count / days).toFixed(2) : '0';
-    const sevPerDay = days > 0 ? (r.severe / days) : 0;
+    const fc = getRouteFilteredCount(r, start, end);
+    const fs = getRouteFilteredSevere(r, start, end);
+    const perDay = days > 0 ? (fc / days).toFixed(2) : '0';
+    const sevPerDay = days > 0 ? (fs / days) : 0;
     const grade = getGrade(sevPerDay);
     const total = r.severe + r.warning + r.info;
     const sp = total > 0 ? (r.severe / total * 100).toFixed(1) : '0';
     const wp = total > 0 ? (r.warning / total * 100).toFixed(1) : '0';
     const ip = total > 0 ? (r.info / total * 100).toFixed(1) : '0';
     const medDur = r.duration && r.duration.count > 0 ? r.duration.median.toFixed(1) + 'h' : '';
-    rows.push([r.displayName || r.id, r.type, grade, perDay, r.count, r.avgSev.toFixed(2), r.topCause, r.topEffect, medDur, sp, wp, ip]);
+    rows.push([r.displayName || r.id, r.type, grade, perDay, fc, r.avgSev.toFixed(2), r.topCause, r.topEffect, medDur, sp, wp, ip]);
   });
 
   const csv = rows.map(r => r.map(c => '"' + String(c).replace(/"/g, '""') + '"').join(',')).join('\n');
@@ -1720,16 +1783,18 @@ function renderRouteTable() {
   const days = getTotalDays(start, end);
   let routes = getFilteredRoutes();
   if (routeSearchTerm) {
-    routes = routes.filter(r => r.id.toLowerCase().includes(routeSearchTerm));
+    routes = routes.filter(r => r.id.toLowerCase().includes(routeSearchTerm) || (r.displayName && r.displayName.toLowerCase().includes(routeSearchTerm)));
   }
 
-  // Compute derived fields
+  // Compute derived fields using filtered month range
   const enriched = routes.map(r => {
-    const perDay = days > 0 ? r.count / days : 0;
-    const sevPerDay = days > 0 ? r.severe / days : 0;
+    const fc = getRouteFilteredCount(r, start, end);
+    const fs = getRouteFilteredSevere(r, start, end);
+    const perDay = days > 0 ? fc / days : 0;
+    const sevPerDay = days > 0 ? fs / days : 0;
     const grade = getGrade(sevPerDay);
     const medDur = r.duration && r.duration.count > 0 ? r.duration.median : 0;
-    return { ...r, perDay, sevPerDay, grade, medDur };
+    return { ...r, perDay, sevPerDay, grade, medDur, _fc: fc };
   });
 
   // Sort
@@ -1756,11 +1821,11 @@ function renderRouteTable() {
       : r.type.includes('Green') ? 'light'
       : r.type.includes('Ferry') ? 'ferry' : 'other';
     return `<tr data-route="${r.id}" class="${selectedRoute === r.id ? 'selected' : ''}">
-      <td><strong>${r.id}</strong></td>
+      <td><strong>${r.displayName || r.id}</strong></td>
       <td><span class="type-badge ${typeClass}">${r.type}</span></td>
       <td><span class="grade-badge" style="background:${GRADE_COLORS[r.grade]}22;color:${GRADE_COLORS[r.grade]}">${r.grade}</span></td>
       <td>${r.perDay.toFixed(1)}</td>
-      <td>${r.count.toLocaleString()}</td>
+      <td>${(r._fc || r.count).toLocaleString()}</td>
       <td>${r.avgSev.toFixed(2)}</td>
       <td>${r.topCause}</td>
       <td>${r.medDur > 0 ? (r.medDur < 1 ? Math.round(r.medDur * 60) + 'm' : r.medDur.toFixed(1) + 'h') : '—'}</td>
@@ -1769,8 +1834,14 @@ function renderRouteTable() {
   }).join('');
 
   tbody.querySelectorAll('tr').forEach(tr => {
+    tr.setAttribute('tabindex', '0');
+    tr.setAttribute('role', 'button');
+    tr.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tr.click(); }
+    });
     tr.addEventListener('click', () => {
       const rid = tr.dataset.route;
+      _modalTrigger = tr;
       selectedRoute = rid;
       renderRouteTable();
       openRouteModal(rid);
@@ -1784,6 +1855,31 @@ function renderRouteTable() {
   });
 }
 
+// ──── Focus Trap Utility ────
+let _modalTrigger = null;
+function trapFocus(overlayEl) {
+  const focusable = overlayEl.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+  if (!focusable.length) return;
+  const first = focusable[0], last = focusable[focusable.length - 1];
+  overlayEl._trapHandler = e => {
+    if (e.key !== 'Tab') return;
+    if (e.shiftKey) {
+      if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+    } else {
+      if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+    }
+  };
+  overlayEl.addEventListener('keydown', overlayEl._trapHandler);
+  first.focus();
+}
+function releaseFocus(overlayEl) {
+  if (overlayEl._trapHandler) {
+    overlayEl.removeEventListener('keydown', overlayEl._trapHandler);
+    delete overlayEl._trapHandler;
+  }
+  if (_modalTrigger) { _modalTrigger.focus(); _modalTrigger = null; }
+}
+
 // ──── Route Modal (#13: fixed label) ────
 document.getElementById('modalClose').addEventListener('click', closeModal);
 document.getElementById('routeModal').addEventListener('click', e => {
@@ -1791,7 +1887,9 @@ document.getElementById('routeModal').addEventListener('click', e => {
 });
 
 function closeModal() {
-  document.getElementById('routeModal').classList.remove('show');
+  const overlay = document.getElementById('routeModal');
+  overlay.classList.remove('show');
+  releaseFocus(overlay);
   selectedRoute = null;
   renderRouteTable();
   if (charts.modalTrend) charts.modalTrend.destroy();
@@ -1819,7 +1917,7 @@ function openRouteModal(routeId) {
   const grade = getGrade(days > 0 ? filteredSevere / days : 0);
 
   document.getElementById('modalTitle').innerHTML =
-    `${route.id} &mdash; ${route.type} <span class="grade-badge" style="background:${GRADE_COLORS[grade]}22;color:${GRADE_COLORS[grade]};margin-left:8px">${grade}</span>`;
+    `${route.displayName || route.id} &mdash; ${route.type} <span class="grade-badge" style="background:${GRADE_COLORS[grade]}22;color:${GRADE_COLORS[grade]};margin-left:8px">${grade}</span>`;
   const dur = route.duration || {};
   const durStr = dur.count > 0 ? (dur.median < 1 ? Math.round(dur.median * 60) + ' min' : dur.median.toFixed(1) + ' hrs') : '—';
   const dur90Str = dur.count > 0 ? (dur.p90 < 1 ? Math.round(dur.p90 * 60) + ' min' : dur.p90.toFixed(1) + ' hrs') : '—';
@@ -1846,7 +1944,7 @@ function openRouteModal(routeId) {
         label: 'Alerts',
         data: monthData,
         borderColor: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(),
-        backgroundColor: 'rgba(79,140,255,0.1)',
+        backgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim() + '1a',
         fill: true, tension: 0.3, pointRadius: 5,
         pointBackgroundColor: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(),
       }],
@@ -1885,7 +1983,9 @@ function openRouteModal(routeId) {
     },
   });
 
-  document.getElementById('routeModal').classList.add('show');
+  const overlay = document.getElementById('routeModal');
+  overlay.classList.add('show');
+  trapFocus(overlay);
 }
 
 // ──── Tooltip ────
@@ -1904,7 +2004,11 @@ function hideTooltip() { document.getElementById('tooltip').style.display = 'non
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') {
     closeModal();
-    document.getElementById('aboutOverlay').classList.remove('show');
+    const aboutOv = document.getElementById('aboutOverlay');
+    if (aboutOv.classList.contains('show')) {
+      aboutOv.classList.remove('show');
+      releaseFocus(aboutOv);
+    }
     document.getElementById('helpPopup').style.display = 'none';
   }
 });
